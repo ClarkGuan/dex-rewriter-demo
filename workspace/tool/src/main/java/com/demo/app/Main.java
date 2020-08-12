@@ -34,6 +34,8 @@ public class Main {
                     tempFile.getAbsolutePath(),
                     "androiddebugkey"
             });
+            new RedirectThread(process.getInputStream(), System.out);
+            new RedirectThread(process.getErrorStream(), System.out);
             System.out.println("return code: " + process.waitFor());
         } catch (IOException e) {
             e.printStackTrace();
@@ -63,6 +65,25 @@ public class Main {
             outputStream.write(buf, 0, count);
         }
         outputStream.flush();
+    }
+
+    private static class RedirectThread extends Thread {
+        private InputStream inputStream;
+        private OutputStream outputStream;
+
+        public RedirectThread(InputStream inputStream, OutputStream outputStream) {
+            this.inputStream = inputStream;
+            this.outputStream = outputStream;
+        }
+
+        @Override
+        public void run() {
+            try {
+                copy(inputStream, outputStream);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
 }
