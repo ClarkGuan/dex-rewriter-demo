@@ -1,0 +1,3 @@
+rootProject.name = 'dex-rewriter-demo'
+include ':workspace:demo'
+include ':workspace:tool'
