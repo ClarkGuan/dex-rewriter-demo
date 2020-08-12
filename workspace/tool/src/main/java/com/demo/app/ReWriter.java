@@ -36,7 +36,7 @@ public class ReWriter {
                             }
                             String superclass = super.getSuperclass();
                             if (superclass.equals("Ljava/lang/Thread;")) {
-                                return "Lcom/demo/app/Faker/Thread;";
+                                return "Lcom/demo/app/Faker$Thread;";
                             }
                             return superclass;
                         }
@@ -50,9 +50,9 @@ public class ReWriter {
         return DEX_REWRITER.getDexFileRewriter().rewrite(f);
     }
 
-    public static InputStream fromDexFile(DexFile file) throws IOException {
+    public static MemoryDataStore fromDexFile(DexFile file) throws IOException {
         MemoryDataStore dataStore = new MemoryDataStore();
         DexPool.writeTo(dataStore, file);
-        return dataStore.readAt(0);
+        return dataStore;
     }
 }

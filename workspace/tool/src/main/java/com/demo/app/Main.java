@@ -1,8 +1,10 @@
 package com.demo.app;
 
 import org.jf.dexlib2.Opcodes;
-import org.jf.dexlib2.dexbacked.DexBackedOdexFile;
+import org.jf.dexlib2.dexbacked.DexBackedDexFile;
+import org.jf.dexlib2.writer.io.MemoryDataStore;
 
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -14,19 +16,24 @@ import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 public class Main {
-    public static void main(String[] args) throws Exception {
-        String filename = "/home/clark/source/android/home/dex-rewriter-demo/workspace/demo/build/outputs/apk/debug/demo-debug.apk";
-        File srcFile = new File(filename);
-        ZipInputStream inputStream = new ZipInputStream(new FileInputStream(srcFile));
-        File tempFile = File.createTempFile("demo-", ".apk");
-        ZipOutputStream outputStream = new ZipOutputStream(new FileOutputStream(tempFile));
+    public static void main(String[] args) {
+        doMain(args[0]);
+    }
+
+    private static void doMain(String path) {
+        if (path == null || !path.endsWith(".apk")) {
+            System.err.println("not apk file!");
+            return;
+        }
 
         try {
+            File srcFile = new File(path);
+            ZipInputStream inputStream = new ZipInputStream(new FileInputStream(srcFile));
+            File tempFile = new File(path.substring(0, path.length()-4) + "-new.apk");
+            ZipOutputStream outputStream = new ZipOutputStream(new FileOutputStream(tempFile));
             rewrite(inputStream, outputStream);
             inputStream.close();
             outputStream.close();
-            srcFile.delete();
-            tempFile.renameTo(srcFile);
             // 签名
             Process process = Runtime.getRuntime().exec(new String[]{
                     "bash", "-c",
@@ -34,10 +41,11 @@ public class Main {
                     tempFile.getAbsolutePath(),
                     "androiddebugkey"
             });
+            System.out.println(process);
             new RedirectThread(process.getInputStream(), System.out);
             new RedirectThread(process.getErrorStream(), System.out);
             System.out.println("return code: " + process.waitFor());
-        } catch (IOException e) {
+        } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         }
     }
@@ -45,10 +53,16 @@ public class Main {
     private static void rewrite(ZipInputStream inputStream, ZipOutputStream outputStream) throws IOException {
         ZipEntry nextEntry;
         while ((nextEntry = inputStream.getNextEntry()) != null) {
-            outputStream.putNextEntry((ZipEntry) nextEntry.clone());
+            ZipEntry newEntry = new ZipEntry(nextEntry.getName());
+            if (nextEntry.getName().equals("")) {
+                continue;
+            }
+            System.out.println("name -> " + nextEntry.getName());
+            outputStream.putNextEntry(newEntry);
             if (nextEntry.getName().endsWith(".dex")) {
                 // 修改 dex
-                copy(ReWriter.fromDexFile(ReWriter.transform(DexBackedOdexFile.fromInputStream(Opcodes.getDefault(), inputStream))), outputStream);
+                MemoryDataStore memoryDataStore = ReWriter.fromDexFile(ReWriter.transform(DexBackedDexFile.fromInputStream(Opcodes.getDefault(), new BufferedInputStream(inputStream))));
+                copy(memoryDataStore.readAt(0), outputStream);
             } else {
                 copy(inputStream, outputStream);
             }
